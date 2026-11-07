@@ -58,23 +58,29 @@ Miles at a level = distance from a checkpoint to the next one, counted at that c
 - **Forecast hour.** Each checkpoint uses the forecast hour nearest to its ETA. Wind is Open-Meteo's 10 m wind speed. Gusts are shown but not scored, because the rules are defined on wind speed.
 - **Departure window.** Departure must be within the next 4 days so the whole trip and the 48-hour heatmap stay inside the forecast.
 - **Heatmap corridor.** Points are placed up to 50 miles either side of each route every ~30 miles, snapped to a 0.4° grid (~25 miles) so overlapping routes share points, and capped at 250 points. The heatmap uses the same risk function and load rules as the checkpoints.
-- **No invented data.** If a weather or routing service fails, the API returns an error instead of guessing. Calls to the free services are retried twice (after 1 s and 2 s) on timeouts and 5xx responses. Rate-limit (429) answers are not retried, since each retry would count against the limit again.
-- **Staying inside Open-Meteo's free limits.** The free tier counts every location as one call. Points are rounded to a ~3 mile grid so shared or nearby points (for example the start of all 3 routes) are requested once, and forecasts are cached in memory for 30 minutes, so planning the same trip again makes no new weather calls.
+- **No invented data.** If a weather or routing service fails, the app shows an error instead of guessing. Server calls to OSRM and Nominatim are retried twice (after 1 s and 2 s) on timeouts and 5xx responses. Rate-limit (429) answers are not retried, since each retry would count against the limit again.
+- **Weather is fetched by the browser.** Open-Meteo's free tier limits each IP address (600 locations/minute, 5,000/hour, 10,000/day), and Render's free plan shares its outgoing IP with other apps, which used up the daily limit. So the browser fetches the forecasts directly and each user spends their own quota. The server still does all routing and all risk scoring, so the rules live in one place (Python) and are covered by the tests.
+- **Fewer weather calls.** Points are rounded to a ~3 mile grid so shared or nearby points (for example the start of all 3 routes) are requested once, and forecasts are cached in the browser for 30 minutes, so planning the same trip again makes no new weather calls.
+- **Trusting the browser's weather.** The scoring endpoint trusts the weather values it receives (it only checks they are valid numbers). Someone sending fake values could only change their own result, so this is acceptable here; a production system would fetch weather server-side with a paid API key.
 
 ## How it works
 
 ```
-React form ──POST /api/plan/──► geocode (Nominatim)
-                                 → 3 routes (OSRM)
-                                 → checkpoints + ETAs
-                                 → one batched weather request (Open-Meteo)
-                                 → risk per checkpoint → summaries → ranking
-          ◄── routes, checkpoints, summaries, recommendation
+Browser                         Django API (Render)              Free services
+───────                         ───────────────────              ─────────────
+form ──POST /api/routes/──────► geocode, 3 routes,      ───────► Nominatim, OSRM
+                                checkpoints + ETAs
+     ◄──────────────────────────
+fetch hourly forecast for every checkpoint ─────────────────────► Open-Meteo
+pick the hour nearest each ETA
+     ──POST /api/score/───────► risk per checkpoint,
+                                summaries, ranking
+     ◄────────── routes + recommendation (drawn on the map)
 
-React map ──POST /api/heatmap/──► corridor grid around the routes
-                                   → batched forecasts → risk for hours 0–48
-          ◄── grid points with 49 hourly levels
-              (moving the slider only calls map setData(); no new requests)
+heatmap ──POST /api/heatmap/points/──► corridor grid around the routes
+fetch the grid's forecasts (hours 0–48) ────────────────────────► Open-Meteo
+        ──POST /api/heatmap/─────────► risk level per point per hour
+moving the slider only calls the map's setData(); no new requests
 ```
 
 ## Tech stack
@@ -83,7 +89,7 @@ React map ──POST /api/heatmap/──► corridor grid around the routes
 | --- | --- |
 | Backend | Python, Django, Django REST Framework, django-cors-headers, requests, gunicorn |
 | Frontend | React, Vite, MapLibre GL, Tailwind CSS, lucide-react |
-| Data | OSRM (routes), Open-Meteo (weather), Nominatim / OpenStreetMap (geocoding), OpenFreeMap (map tiles) |
+| Data | OSRM (routes), Open-Meteo (weather, fetched by the browser), Nominatim / OpenStreetMap (geocoding), OpenFreeMap (map tiles) |
 | Tests | pytest, pytest-django |
 | Hosting | Render (API), Vercel (frontend) |
 
@@ -91,33 +97,46 @@ No API keys are needed.
 
 ## API
 
-### `POST /api/plan/`
+### `POST /api/routes/`
 
 ```json
 {
   "origin": "Seattle, WA",
   "destination": "Spokane, WA",
   "departure_utc": "2026-11-08T05:00:00Z",
-  "load_lbs": 35000,
   "spacing_mi": 10
 }
 ```
 
-Returns `recommended_route_id`, `recommendation_reason` and `routes[]`. Each route has `distance_mi`, `duration_s`, `arrival_utc`, `geometry`, `checkpoints[]` (mile, lat, lon, eta, weather, level, label, reason) and a `summary` (miles per level, average risk).
+Returns `origin`, `destination`, `departure_utc` and `routes[]`, each with `id`, `distance_mi`, `duration_s`, `arrival_utc`, `is_detour`, `geometry` and `checkpoints[]` (`mile`, `lat`, `lon`, `eta`).
 
-Errors: `400` for invalid input or an unknown place; `502` when a routing or weather service fails.
+### `POST /api/score/`
+
+```json
+{
+  "load_lbs": 35000,
+  "routes": [
+    { "id": "A", "duration_s": 18480,
+      "checkpoints": [{ "mile": 0, "weather": { "wind": 12, "rain": 0.3, "snow": 0 } }] }
+  ]
+}
+```
+
+Returns `recommended_route_id`, `recommendation_reason` and, per route, a `summary` (miles per level, average risk) and each checkpoint's `level`, `label` and `reason`.
+
+### `POST /api/heatmap/points/`
+
+`{ "paths": [[[lon, lat], ...], ...] }` → `{ "points": [{ "lat", "lon" }, ...] }`, the grid around the routes.
 
 ### `POST /api/heatmap/`
 
-```json
-{ "departure_utc": "...", "load_lbs": 35000, "paths": [[[lon, lat], ...], ...] }
-```
+`{ "load_lbs": 35000, "points": [{ "wind": [...], "rain": [...], "snow": [...] }] }` (up to 49 hourly values each) → `{ "levels": [[0, 1, ...], ...] }`.
 
-Returns `start_utc`, `hours` (up to 49) and `points[]`, each with `lat`, `lon`, `level[hour]` and `wind[hour]`.
+### `GET /` and `GET /api/health/`
 
-### `GET /api/health/`
+The home page lists the endpoints; `/api/health/` returns `{"ok": true}` and is called on page load to wake the server.
 
-Returns `{"ok": true}`. The frontend calls it on page load to wake the server.
+Errors: `400` for invalid input or an unknown place; `502` when the routing or geocoding service fails.
 
 ## Project structure
 
@@ -130,17 +149,18 @@ backend/
     geocode.py       place name -> coordinates (Nominatim)
     routes.py        3 route options (OSRM + detours)
     checkpoints.py   checkpoints every N miles with ETAs
-    weather.py       batched, cached hourly forecasts (Open-Meteo)
-    plan.py          the full /plan pipeline
-    heatmap.py       corridor grid and hourly risk
-    httpclient.py    GET with retries for the free APIs
+    plan.py          /routes (routes + checkpoints) and /score (risk + ranking)
+    heatmap.py       corridor grid and hourly risk scoring
+    httpclient.py    GET with retries for OSRM and Nominatim
     views.py         input validation and endpoints
     tests/           unit tests
 frontend/src/
   api.js             calls to the backend
+  lib/weather.js     batched, cached Open-Meteo forecasts (fetched by the browser)
+  lib/plan.js        the planning flow: routes -> weather -> score; heatmap
   App.jsx            page layout and state
   components/        TripForm, RouteCards, RouteMap, WeatherPanel
-  lib/               risk colours/formatting, heatmap and truck-position helpers
+  lib/risk.js, lib/heatmap.js   risk colours/formatting, heatmap and truck-position helpers
 ```
 
 ## Run locally
@@ -171,7 +191,7 @@ cd backend
 pytest -q
 ```
 
-The tests cover the risk thresholds and boundary values, the load rules, the ranking order and reasons, the heatmap grid, the weather cache and the retry logic.
+The tests cover the risk thresholds and boundary values, the load rules, the ranking order and reasons, scoring routes and the heatmap grid with load rules, and the retry logic.
 
 ## Deployment
 

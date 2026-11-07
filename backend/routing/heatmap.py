@@ -1,11 +1,15 @@
-"""Weather heatmap: a grid of points around the routes, with risk for every hour 0-48."""
+"""Weather heatmap: grid points around the routes, and risk for each hour 0-48.
+
+The server picks the points (corridor_points); the browser fetches their hourly
+forecast from Open-Meteo; the server scores it (score_grid) with the same
+checkpoint_risk() and load rules used for the routes.
+"""
 
 import math
 
 from .checkpoints import haversine_miles
 from .risk import checkpoint_risk
 from .routes import _offset_point
-from .weather import WeatherError, fetch_hourly
 
 HOURS = 49                          # slider positions 0..48
 GRID_DEG = 0.4                      # snap points to a 0.4 degree grid (~25 miles)
@@ -55,30 +59,12 @@ def corridor_points(paths):
     return points[::step]
 
 
-def build_heatmap(paths, departure_utc, load_lbs):
-    """Risk level and wind speed at every corridor point for each hour from departure."""
-    points = corridor_points(paths)
-    if not points:
-        return {"start_utc": None, "hours": 0, "points": []}
+def score_grid(series, load_lbs):
+    """series: [{"wind": [...], "rain": [...], "snow": [...]}] hourly values per point.
 
-    start = departure_utc.replace(minute=0, second=0, microsecond=0)
-    forecasts = fetch_hourly(points)
-
-    times = forecasts[0]["times"]
-    if start not in times:
-        raise WeatherError("No forecast available for the departure hour")
-    first = times.index(start)
-    count = min(HOURS, len(times) - first)
-
-    for point, forecast in zip(points, forecasts):
-        levels, winds = [], []
-        for i in range(first, first + count):
-            wind = forecast["wind"][i] or 0.0
-            rain = forecast["rain"][i] or 0.0
-            snow = forecast["snow"][i] or 0.0
-            levels.append(checkpoint_risk(wind, rain, snow, load_lbs)["level"])
-            winds.append(round(wind))
-        point["level"] = levels
-        point["wind"] = winds
-
-    return {"start_utc": start.isoformat(), "hours": count, "load_lbs": load_lbs, "points": points}
+    Returns the risk level for every point and hour: [[level, ...], ...].
+    """
+    return [
+        [checkpoint_risk(w, r, s, load_lbs)["level"] for w, r, s in zip(p["wind"], p["rain"], p["snow"])]
+        for p in series
+    ]

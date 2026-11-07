@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Truck } from 'lucide-react';
-import { fetchHeatmap, pingServer, planTrip } from './api';
+import { pingServer } from './api';
+import { fetchHeatmap, planTrip } from './lib/plan';
 import { hourTime, truckPosition } from './lib/heatmap';
 import TripForm from './components/TripForm';
 import RouteCards from './components/RouteCards';

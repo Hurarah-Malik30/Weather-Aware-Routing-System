@@ -26,23 +26,35 @@ export async function pingServer() {
   if (!response.ok) throw new Error(`Server returned ${response.status}`);
 }
 
-export function planTrip({ origin, destination, departureLocal, loadLbs, spacingMi }) {
-  return post('/api/plan/', {
+// 1st half of planning: 3 routes with checkpoints and ETAs (no weather yet).
+export function prepareRoutes({ origin, destination, departureLocal, spacingMi }) {
+  return post('/api/routes/', {
     origin,
     destination,
     // datetime-local gives local time with no zone; convert to UTC at submit time.
     departure_utc: new Date(departureLocal).toISOString(),
-    load_lbs: loadLbs,
     spacing_mi: spacingMi,
   });
 }
 
-// Weather grid around all 3 routes for hours 0-48 after departure.
-export function fetchHeatmap(plan) {
-  return post('/api/heatmap/', {
-    departure_utc: plan.departure_utc,
-    load_lbs: plan.load_lbs,
-    // Checkpoints are a light outline of each route (one point every 10-50 miles).
-    paths: plan.routes.map((r) => r.checkpoints.map((cp) => [cp.lon, cp.lat])),
+// 2nd half: send the checkpoint weather back; get risk levels and the recommendation.
+export function scoreRoutes(loadLbs, routes) {
+  return post('/api/score/', {
+    load_lbs: loadLbs,
+    routes: routes.map((r) => ({
+      id: r.id,
+      duration_s: r.duration_s,
+      checkpoints: r.checkpoints.map((cp) => ({ mile: cp.mile, weather: cp.weather })),
+    })),
   });
+}
+
+// Grid points around the routes for the weather heatmap.
+export function heatmapPoints(paths) {
+  return post('/api/heatmap/points/', { paths });
+}
+
+// Risk level for every heatmap point and hour, from the hourly weather.
+export function scoreHeatmap(loadLbs, series) {
+  return post('/api/heatmap/', { load_lbs: loadLbs, points: series });
 }
