@@ -1,0 +1,19 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+db.sqlite3
+
+# Node
+node_modules/
+dist/
+
+# Secrets and local settings
+.env
+.env.local
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
