@@ -34,7 +34,12 @@ def describe(exc):
     """Short, user-friendly text for a failed request (no long URLs)."""
     response = getattr(exc, "response", None)
     if response is not None and response.status_code == 429:
-        return "rate limit reached on the free service, please wait a minute and try again"
+        # Open-Meteo says which limit was hit, e.g. "Hourly API request limit exceeded".
+        try:
+            reason = response.json().get("reason")
+        except ValueError:
+            reason = None
+        return f"rate limit reached on the free service ({reason or 'too many requests'}). Please try again later"
     if response is not None:
         return f"HTTP {response.status_code}"
     if isinstance(exc, requests.Timeout):

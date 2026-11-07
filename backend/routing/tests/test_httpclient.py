@@ -55,3 +55,9 @@ def test_does_not_retry_client_errors_or_rate_limits(replies, status):
     with pytest.raises(requests.HTTPError):
         httpclient.get_json("http://x")
     assert len(replies) == 1   # the second reply was never requested
+
+
+def test_describe_shows_rate_limit_reason():
+    response = FakeResponse(429, {"error": True, "reason": "Hourly API request limit exceeded"})
+    exc = requests.HTTPError("429", response=response)
+    assert "Hourly API request limit exceeded" in httpclient.describe(exc)
