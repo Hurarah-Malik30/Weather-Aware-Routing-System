@@ -44,13 +44,14 @@ def test_retries_timeout_then_succeeds(replies):
 
 
 def test_gives_up_after_three_attempts(replies):
-    replies += [FakeResponse(429), FakeResponse(429), FakeResponse(429)]
+    replies += [FakeResponse(503), FakeResponse(503), FakeResponse(503)]
     with pytest.raises(requests.HTTPError):
         httpclient.get_json("http://x")
 
 
-def test_does_not_retry_client_errors(replies):
-    replies += [FakeResponse(400), FakeResponse(200, {})]
+@pytest.mark.parametrize("status", [400, 429])
+def test_does_not_retry_client_errors_or_rate_limits(replies, status):
+    replies += [FakeResponse(status), FakeResponse(200, {})]
     with pytest.raises(requests.HTTPError):
         httpclient.get_json("http://x")
     assert len(replies) == 1   # the second reply was never requested

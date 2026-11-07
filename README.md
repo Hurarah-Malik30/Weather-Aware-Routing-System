@@ -2,7 +2,7 @@
 
 Plans a truck trip, compares **3 route options** and recommends the safest one, using the hourly weather forecast **at the time the truck will actually reach each point** on the route.
 
-**Live demo:** _add Vercel URL_ · **API:** _add Render URL_ · **Video walkthrough:** _add Loom URL_
+**Live demo:** https://weather-aware-routing-system.vercel.app/ · **API:** https://weather-aware-routing-system.onrender.com/ · **Video walkthrough:** _add Loom URL_
 
 > The backend runs on Render's free plan, which sleeps when idle. The first request after a quiet period can take up to a minute while it wakes up; the app shows a message while this happens.
 
@@ -57,8 +57,9 @@ Miles at a level = distance from a checkpoint to the next one, counted at that c
 - **Truck speed.** OSRM uses a car profile, so drive time is `max(OSRM time, distance ÷ 60 mph)`. ETAs along the route are spread in proportion to distance.
 - **Forecast hour.** Each checkpoint uses the forecast hour nearest to its ETA. Wind is Open-Meteo's 10 m wind speed. Gusts are shown but not scored, because the rules are defined on wind speed.
 - **Departure window.** Departure must be within the next 4 days so the whole trip and the 48-hour heatmap stay inside the forecast.
-- **Heatmap corridor.** Points are placed up to 60 miles either side of each route every ~25 miles, snapped to a 0.3° grid (~20 miles) so overlapping routes share points, and capped at 600 points. The heatmap uses the same risk function and load rules as the checkpoints.
-- **No invented data.** If a weather or routing service fails, the API returns an error instead of guessing. Calls to the free services are retried twice (after 1 s and 2 s) on timeouts, 429 and 5xx responses.
+- **Heatmap corridor.** Points are placed up to 50 miles either side of each route every ~30 miles, snapped to a 0.4° grid (~25 miles) so overlapping routes share points, and capped at 250 points. The heatmap uses the same risk function and load rules as the checkpoints.
+- **No invented data.** If a weather or routing service fails, the API returns an error instead of guessing. Calls to the free services are retried twice (after 1 s and 2 s) on timeouts and 5xx responses. Rate-limit (429) answers are not retried, since each retry would count against the limit again.
+- **Staying inside Open-Meteo's free limits.** The free tier counts every location as one call. Points are rounded to a ~3 mile grid so shared or nearby points (for example the start of all 3 routes) are requested once, and forecasts are cached in memory for 30 minutes, so planning the same trip again makes no new weather calls.
 
 ## How it works
 
@@ -129,7 +130,7 @@ backend/
     geocode.py       place name -> coordinates (Nominatim)
     routes.py        3 route options (OSRM + detours)
     checkpoints.py   checkpoints every N miles with ETAs
-    weather.py       batched hourly forecasts (Open-Meteo)
+    weather.py       batched, cached hourly forecasts (Open-Meteo)
     plan.py          the full /plan pipeline
     heatmap.py       corridor grid and hourly risk
     httpclient.py    GET with retries for the free APIs
@@ -170,7 +171,7 @@ cd backend
 pytest -q
 ```
 
-The tests cover every risk threshold and boundary, the load rules, the ranking order and reasons, the heatmap grid and the retry logic.
+The tests cover the risk thresholds and boundary values, the load rules, the ranking order and reasons, the heatmap grid, the weather cache and the retry logic.
 
 ## Deployment
 

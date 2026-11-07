@@ -106,7 +106,7 @@ export default function RouteMap({ plan, selectedId, onSelectRoute, focus, heatm
         paint: {
           'heatmap-weight': ['get', 'w'],
           'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 3, 0.9, 8, 1.4],
-          'heatmap-radius': ['interpolate', ['exponential', 2], ['zoom'], 3, 12, 6, 45, 9, 300],
+          'heatmap-radius': ['interpolate', ['exponential', 2], ['zoom'], 3, 15, 6, 55, 9, 360],
           'heatmap-color': HEAT_COLOR,
           'heatmap-opacity': 0.75,
         },

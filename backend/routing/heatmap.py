@@ -8,10 +8,10 @@ from .routes import _offset_point
 from .weather import WeatherError, fetch_hourly
 
 HOURS = 49                          # slider positions 0..48
-GRID_DEG = 0.3                      # snap points to a 0.3 degree grid (~20 miles)
-SPINE_STEP_MI = 25                  # one cross-section of the corridor every 25 miles
-OFFSETS_MI = (-60, -30, 0, 30, 60)  # corridor width: 60 miles each side of the route
-MAX_POINTS = 600                    # keeps it to ~6 batched weather requests
+GRID_DEG = 0.4                      # snap points to a 0.4 degree grid (~25 miles)
+SPINE_STEP_MI = 30                  # one cross-section of the corridor every 30 miles
+OFFSETS_MI = (-50, -25, 0, 25, 50)  # corridor width: 50 miles each side of the route
+MAX_POINTS = 250                    # each point is one call on Open-Meteo's free tier
 
 
 def _bearing(lat1, lon1, lat2, lon2):

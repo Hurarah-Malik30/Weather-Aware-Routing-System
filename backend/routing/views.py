@@ -68,6 +68,21 @@ def parse_paths(data):
     return parsed
 
 
+class ApiRootView(APIView):
+    """What a visitor sees at the API's home page: what this service is and its endpoints."""
+
+    def get(self, request):
+        return Response({
+            "service": "Weather-Aware Truck Routing API",
+            "frontend": "https://weather-aware-routing-system.vercel.app/",
+            "endpoints": {
+                "GET /api/health/": "Health check, returns {\"ok\": true}",
+                "POST /api/plan/": "Plan a trip: 3 routes, checkpoint weather and risk, recommendation",
+                "POST /api/heatmap/": "Hourly risk grid around the routes for hours 0-48",
+            },
+        })
+
+
 class HealthView(APIView):
     """Cheap endpoint the frontend calls on page load to wake the free Render server."""
 

@@ -4,7 +4,7 @@ import math
 
 import requests
 
-from .httpclient import get_json
+from .httpclient import describe, get_json
 
 OSRM_URL = "https://router.project-osrm.org/route/v1/driving/"
 METERS_PER_MILE = 1609.344
@@ -26,7 +26,7 @@ def _osrm(coords, alternatives):
     try:
         data = get_json(OSRM_URL + path, params=params, timeout=30)
     except requests.RequestException as exc:
-        raise RoutingError(f"Routing service unavailable: {exc}") from exc
+        raise RoutingError(f"Routing service unavailable: {describe(exc)}") from exc
 
     if data.get("code") != "Ok":
         raise RoutingError("No route found between these locations")

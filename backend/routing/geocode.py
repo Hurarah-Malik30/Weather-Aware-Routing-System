@@ -2,7 +2,7 @@
 
 import requests
 
-from .httpclient import get_json
+from .httpclient import describe, get_json
 
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
 # Nominatim's usage policy asks for an app name and a contact email.
@@ -29,7 +29,7 @@ def geocode(query):
             timeout=15,
         )
     except requests.RequestException as exc:
-        raise GeocodeError(f"Geocoding service unavailable: {exc}") from exc
+        raise GeocodeError(f"Geocoding service unavailable: {describe(exc)}") from exc
 
     if not results:
         raise GeocodeError(f"Could not find location: {query}")
