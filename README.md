@@ -209,4 +209,4 @@ The tests cover the risk thresholds and boundary values, the load rules, the ran
 
 ## Time spent
 
-About **_X_ hours** in total (backend logic and tests, frontend and map, heatmap, deployment and documentation).
+About 12 hours in total (backend logic and tests, frontend and map, heatmap, deployment and documentation).
