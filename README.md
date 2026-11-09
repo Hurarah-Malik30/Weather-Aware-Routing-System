@@ -2,7 +2,7 @@
 
 Plans a truck trip, compares **3 route options** and recommends the safest one, using the hourly weather forecast **at the time the truck will actually reach each point** on the route.
 
-**Live demo:** https://weather-aware-routing-system.vercel.app/ · **API:** https://weather-aware-routing-system.onrender.com/ · **Video walkthrough:** _add Loom URL_
+**Live demo:** https://weather-aware-routing-system.vercel.app/ · **API:** https://weather-aware-routing-system.onrender.com/ ·
 
 > The backend runs on Render's free plan, which sleeps when idle. The first request after a quiet period can take up to a minute while it wakes up; the app shows a message while this happens.
 

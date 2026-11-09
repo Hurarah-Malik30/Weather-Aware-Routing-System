@@ -82,7 +82,7 @@ export default function App() {
         <header className="p-5 bg-slate-900 text-white flex items-center gap-3">
           <Truck className="w-7 h-7 text-blue-400" />
           <div>
-            <h1 className="text-lg font-bold tracking-tight">Weather-Aware Truck Router</h1>
+            <h1 className="text-lg font-bold tracking-tight">Weather-Aware Routing System</h1>
             <p className="text-xs text-slate-400">Risk checked at the truck's ETA at every checkpoint</p>
           </div>
         </header>

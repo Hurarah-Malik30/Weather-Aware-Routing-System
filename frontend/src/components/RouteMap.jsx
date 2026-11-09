@@ -77,6 +77,8 @@ export default function RouteMap({ plan, selectedId, onSelectRoute, focus, heatm
       style: MAP_STYLE,
       center: [-98.5, 39.8],
       zoom: 3.4,
+      // Compact "i" button instead of a long text line, so it never sits under the slider panel.
+      attributionControl: { compact: true },
     });
     mapRef.current = map;
     popupRef.current = new Popup({ closeButton: true, maxWidth: '280px' });
